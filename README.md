@@ -29,3 +29,21 @@
 ### import 및 모듈의 절대 경로 별칭 설정
 * Next.js에는 `tsconfig.json` 및 `jsconfig.json` 파일의 `"paths"` 및 `"baseUrl"` 옵션에 대한 지원을 내장
 * 프로젝트 디렉터리를 절대 경로로 별칭하여 모듈을 더 쉽고 깔끔하게 가져올 수 있음
+
+### Core Web Vitals
+* LCP(Largest Contentful Paint) : 뷰포트 내에서 가장 큰 페이지 요소를 표시하는 데 걸리는 시간
+* FID(First Input Delay) : 사용자가 웹페이지와 상호작용을 시도하는 첫 번째 순간부터 웹페이지가 응답하는 시간
+* CLS(Cumulative Layout Shift) : 방문자에게 콘텐츠가 얼마나 불안정한 지 측정한 값, 레이아웃 이동 빈도를 측정
+
+### .eslintrc.json vs eslint.config.mjs
+* json은 복잡한 설정이 어려움
+* `mjs`는 ESLint가 새롭게 도입한 방식, ESM형식
+* 확장자 `mjs`는 `"module JavaScript"`
+* 조건문, 변수, 동적 로딩 등 코드처럼 유연한 설정 가능
+* 다른 설정 파일을 import해 재사용 가능
+* 프로젝트 규모가 커질수록 유지보수 유리
+
+### pnpm
+* 고성능 Node 패키지 매니저
+* 디스크 공간 낭비, 복잡한 의존성 관리, 느린 설치 속도 문제 개선
+* pnpm의 특징 중에 하드 링크를 사용해서 디스크 공간을 효율적으로 사용
