@@ -18,10 +18,41 @@ export default function RootPage() {
 ### 레이아웃 만들기
 * 레이아웃은 여러 페이지에서 공유 되는 UI
 * 네비게이션에서 state 및 상호작용을 유지하며, 다시 렌더링 되지는 않음
+~~~ts
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <html lang="en">
+      <body>
+        <header>header</header>
+        <main>{children}</main>
+        <footer>footer</footer>
+      </body>
+    </html>
+  )
+}
+~~~
 
 ### 중첩 라우트 만들기
 * 중첩 라우트는 다중 URL 세그먼트로 구성된 라우트
 * 폴더는 URL 세그먼트에 매핑되는 경로 세그먼트를 정의하는데 사용
+
+### `[slug]`의 이해
+* `slug`는 사이트의 특정 페이지를 쉽게 읽을 수 있는 형태로 식별하는 URL의 일부
+* 문서의 경로 `/blog/[slug]`의 `[slug]` 부분은 불러올 데이터의 key를 말함
+* async function : 함수를 async 선언해야 내부에서 await를 쓸 수 있음
+* 데이터 소스가 크타면 `.find`는 0(n)이므로 DB 쿼리로 바꿔야 함
+
+### 동적 세그먼트 만들기
+* 동적 세그먼트를 사용하면 데이터에서 사용된 경로를 만들 수 있음
+
+### 검색 매개변수를 사용한 렌더링
+* `searchParams`를 사용하면 해당 페이지는 동적 렌더링으로 처리됨
+    * URL의 쿼리 파라미터(search parameters)를 읽기 위해 요청이(request) 필요
+* 클라이언트 컴포넌트는 `useSearchParams` hook을 사용하여 검색 매개변수를 읽을 수 있음
 
 ## 2025.09.10 3주차
 
