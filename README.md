@@ -1,5 +1,46 @@
 # 202130311 안상하
 
+## 2025.09.24 5주차
+
+### searchParams
+* URL의 쿼리 문자열을 읽는 방법
+* 예: /products?category=shoes&page=2
+  * 위에서 category=shoes, page=2가 `search parameters`
+
+### 왜 동적 렌더링이 되는가?
+* searchParams는 요청이 들어와야만 값을 알 수 있기에 Next.js는 이 페이지를 정적으로 미리 생성할 수 없고 요청이 올 때 마다 새로 렌더링을 함
+
+### 코드 예시
+~~~ts
+export default async function ProductsPage({
+  searchParams
+}: {
+  searchParams: Promise<{ id?: string; name?: string}>
+}) {
+  const {id = "non id", name = "non name" } = await searchParams;
+  return (
+    <div>
+      <h1>Products Page</h1>
+      <p>id : {id}</p>
+      <p>name : {name}</p>
+    </div>
+  ) 
+}
+~~~
+
+### Linking between pages(페이지 간 연결)
+* `<Link>` 컴포넌트를 사용하여 경로 사이를 탐색할 수 있음
+* `<Link>`는 HTML `<a>`태그를 확장하여 prefeching 및 client-side navigation 기능을 제공하는 Next.js의 기본제공 컴포넌트
+
+### 네비게이션 작동 방식
+* Server Rendering 
+* Prefetching
+* Streaming
+* Client-side transitions 
+
+### Server Rendering
+* 초기 네비게이션 및 후속 네비게이션 할 때, 서버 컴포넌트 페이로드는 클라이언트로 전송되기 전에 서버에서 생성됨
+
 ## 2025.09.17 4주차
 
 ### 페이지 만들기
