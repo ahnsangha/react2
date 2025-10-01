@@ -15,7 +15,7 @@
 * 로딩 UI를 표시할려면 동적 경로에 loading.tsx를 추가하는 것이 좋음
 
 ### 동적 세그먼트 없는 generateStaticParams
-* 동적 세그먼트는 사전 렌더링 될 수 있지만 generateStaticParams가 누락되어 사전 렌더링 되지 않는 경우, 해당 경로는 요청 시점에 동적 렌더링으로 대체
+* 동적 세그먼트는 사전 렌더링 될 수 있지만 `generateStaticParams`가 누락되어 사전 렌더링 되지 않는 경우, 해당 경로는 요청 시점에 동적 렌더링으로 대체
 
 ### await이 없어도 async를 붙여 두는 이유
 * Next.js에서의 Server Component는 비동기 렌더링을 전제
@@ -23,6 +23,114 @@
 1. 일관성 유지 : async function으로 일관성 유지
 2. 확장성 : DB,API에서 데이터를 가져올 경우 수정할 필요가 없음
 3. React Server Component 호환성 : async가 붙어 있어도 불필요한 오버헤드가 없음
+
+### generateStaticParams 유무 비교
+* generateStaticParams가 없는 경우
+   * Next.js는 slug 값을 빌드 시점에는 알지 못함
+   * slug 페이지에 접속하면, Next.js는 서버에서 요청이 올 때마다 해당 페이지를 동적으로 렌더링
+   * 이 방식으로는 빌드 결과물로 HTML 파일이 생성되지 않음
+* generateStaticParams가 있는 경우
+  * Next.js에게 빌드 시점에 미리 생성할 slug 목록을 알려줄 수 있음
+  * 지정된 slug에 대한 정적 HTML과 JSON 파일이 빌드 시점에 생성
+  * 사용자가 처음 페이지에 접근할 때 서버 사이드 렌더링(SSR) 없이 미리 만들어진 페이지를 즉시 제공
+
+### 느린 네트워크
+* 네트워크가 느리거나 불안정한 경우 사용자가 링크를 클릭하기 전에 프리페칭이 완료되지 않을 수 있음
+* 정적 경로, 동적 경로 둘 다 영향을 줄 수 있음
+* loadimg.tsx 파일이 아직 프리페칭이 되지 않았기 때문에 즉시 표시되지 않을 수 있음
+* 체감 성능을 개선하기 위해 `useLinkStatus Hook`을 사용하여 전환이 진행되는 동안 사용자에게 시각적인 피드백을 표시
+* 예시
+~~~ts
+// app/loading-indicator.tsx
+
+'use client'
+
+import { useLinkStatus } from 'next/link'
+
+export default function LoadingIndicator() {
+  const { pending } = useLinkStatus()
+
+  return pending ? (
+    <div aria-label="loading" aria-live="polite" className="spinner" />
+  ) : null
+}
+~~~
+* 초기 애니메이션에 지연 시간(예: 100ms)을 추가하고, 초기 상태를 보이지 않게(opacity: 0) 설정하면 로딩 표시기를 `디바운스(debounce)` 할 수 있음
+* 로딩 표시기는 내비게이션(페이지 전환)이 지정된 지연 시간보다 오래 걸리는 경우에만 표시
+* `debounce란?`: 연속적으로 발생하는 이벤트를 그룹화하여, 마지막 이벤트가 발생한 후 일정 시간이 지나면 함수를 한 번만 실행하는 기술. 사용자 인터페이스에서 과도한 이벤트 발생을 막고 성능을 최적화하기 위해 사용
+* 예시
+~~~css
+.spinner {
+  opacity: 0;
+  animation:
+    fadeIn 500ms forwards,
+    rotate 1s linear infinite;
+  animation-delay: 100ms;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+~~~
+
+### 프리페칭 비활성화
+* `<Link>` 컴포넌트에서 `prefetch prop`을 `false`로 설정하여 프리패치를 사용하지 않도록 선택할 수 있음
+* 대량의 링크 목록(예: 무한 스크롤 테이블)을 렌더링할 때 불필요한 리소스 사용을 방지하는 데 유용함
+~~~html
+<Link prefetch={false} href="/blog">Blog</Link>
+~~~
+* 프리패칭을 비활성화하면 다음과 같은 단점이 있음
+  * 정적 라우팅: 사용자가 링크를 클릭할 때만 페이지를 가져옴
+  * 동적 라우팅: 클라이언트가 해당 경로로 이동하기 전에 서버에서 먼저 렌더링
+* 마우스 오버(hover) 시에만 프로그래밍 방식으로 프리패치를 사용하는 것이 좋음
+* 사용자가 방문할 가능성이 높은 경로로만 프리패치를 제한할 수 있음
+
+### Hydration이 완료되지 않음
+* `<Link>`는 클라이언트 컴포넌트이기 때문에, 라우팅 페이지를 `프리패치(prefetch)`하기 전에 먼저 `하이드레이션(hydration)`되어야 함
+* 초기 방문 시 내려받는 자바스크립트 번들 용량이 크면 하이드레이션이 지연되어 프리패칭이 바로 시작되지 않을 수 있음
+* React의 `선택적 하이드레이션(selective hydration)`을 통해 이를 완화하여, 다음과 같은 방법으로 이점을 더욱 개선
+  * `@next/bundle-analyzer` 플러그인을 사용하면 대규모 종속성을 제거하여 번들 크기를 식별하고 줄일 수 있음
+  * 가능하다면 클라이언트에서 서버로 로직을 이동
+
+### Hydration?
+* 서버에서 생성된 정적 HTML에 JavaScript 로직을 추가하여 동적으로 상호작용이 가능하도록 만드는 과정을 의미
+* React, Vue 등 프론트엔드 라이브러리나 프레임워크에서 많이 사용되는 용어. `서버 사이드 렌더링(SSR)`으로 생성된 정적 HTML에 클라이언트 측에서 JavaScript를 통해 이벤트 리스너, 상태 관리 등을 주입하여 인터랙티브한 웹 페이지로 변환하는 과정
+
+### SSR과 Hydration
+* SSR은 서버에서 미리 HTML을 생성하여 사용자에게 전달하는 방식
+* 초기 로딩 속도가 빠르다는 장점이 있지만, 서버에서 생성된 HTML은 정적인 상태이므로 JavaScript 코드를 통해 동적인 상호작용을 구현하려면 추가적인 작업이 필요
+
+### Hydration의 역할
+* Hydration은 SSR로 생성된 정적 HTML에 클라이언트 측 JavaScript를 연결하여, 페이지가 로드된 후에도 사용자와의 상호작용이 가능하도록 만듬
+
+### Examples - 네이티브 히스토리 API
+* Next.js는 기본적으로 `window.history.pushState` 및 `window.history.replaceState` 메서드를 사용하여, 페이지를 다시 로드하지 않고도 브라우저의 기록 스택을 업데이트 할 수 있음
+* `pushState` 및 `replaceState` 호출은 Next.js 라우터에 통합되어 `usePathname` 및 `useSearchParams`와 같은 훅(Hook)과 동기화
+
+### window.history.pushState
+* 이 함수를 사용하여 브라우저의 기록 스택에 새 항목을 추가 
+* 사용자는 이전 상태로 돌아갈 수 있음
+* 사용자는 이전 상태로 돌아갈 수 있음
+
+### window.history.replaceState
+* 브라우저의 기록 스택에서 현재 항목을 바꾸려 할 때 이 함수를 사용
+* 사용자는 이전 상태로 돌아갈 수 있음
+* 예시: 앱의 로케일(Locale)을 전환하는 경우에 사용
+  * Locale: 사용자의 언어, 지역, 날짜/시간 형식, 숫자 표기법 등 사용자 인터페이스에서 사용되는 다양한 설정을 정의하는 문자열
 
 ## 2025.09.24 5주차
 
