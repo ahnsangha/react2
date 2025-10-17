@@ -1,5 +1,171 @@
 # 202130311 안상하
 
+## 2025.10.16 8주차
+
+### Introduction
+* 기본적으로 `layout`과 `page`는 `server component`입니다.
+* `server`에서 데이터를 가져와 UI의 일부를 렌더링할 수 있고, 선택적으로 결과를 `cache`한 후 `client`로 스트리밍할 수 있습니다.
+* 상호작용이나 브라우저 API가 필요한 경우 `client component`를 사용하여 기능을 계층화
+
+### server 및 client component를 언제 사용해야 하나
+* `client` 환경과 `server` 환경은 서로 다른 기능을 가지고 있음
+* `server` 및 `client component`를 사용하면 사용하는 사례에 따라 각각의 환경에서 필요한 로직을 실행할 수 있음
+  * 다음과 같은 항목이 필요할 경우에는 `client component`를 사용합니다.
+    * state 및 event handler. `예)` `onClick` `onChange`
+    * lifecycle logic. `예)` `useEffect`
+    * 브라우저 전용 API. `예)` `localStorage` `window` `Navigator.geolocation` 등
+    * 사용자 정의 `Hook`
+  * 다음과 같은 항목이 필요할 경우에는 `server component`를 사용
+    * 서버의 데이터베이스 혹은 API에서 data를 가져오는 경우 사용
+    * API key, token 및 기타 보안 데이터를 client에 노출하지 않고 사용
+    * 브라우저로 전송되는 `JavaScript`의 양을 줄이고 싶을 때 사용
+    * 콘텐츠가 포함된 첫 번째 페인트`(First Contentful Paint-FCP)`를 개선하고, 콘텐츠를 client에 점진적으로 스트리밍
+
+### server 및 client component를 언제 사용해야 하나요?
+* 예를 들어 `<Page> component`는 게시물에 대한 데이터를 가져와서, `client` 측 상호 작용을 처리하는 `<LikeButton>에 props`로 전달하는 `server component`
+* `@/ui/like-button`은 `client component`이기 때문에 `use client`를 사용하고 있음
+
+~~~ts
+// app/[id]/page.tsx
+import LikeButton from '@/app/ui/like-button'
+import { getPost } from '@/lib/data'
+
+export default async function Page({ params }: { params: { id: string } }) {
+  const post = await getPost(params.id)
+
+  return (
+    <div>
+      <main>
+        <h1>{post.title}</h1>
+        {/* ... */}
+        <LikeButton likes={post.likes} />
+      </main>
+    </div>
+  )
+}
+~~~
+
+~~~ts
+// app/ui/like-button.tsx
+'use client'
+
+import { useState } from 'react'
+
+export default function LikeButton({ likes }: { likes: number }) {
+  // ...
+}
+~~~
+
+### [ Optimistic Update(낙관적 업데이트) ]
+* 사용자에 의해서 이벤트(예: 좋아요 버튼 클릭)가 발생 하면, 서버 응답을 기다리지 않고 클라이언트(브라우저)의 UI를 즉시 변경(업데이트)
+* 서버에 보낸 요청의 성공을 낙관(optimistic)한다고 가정해서 먼저 화면에 변화를 보여줌
+* 서버에서 응답이 없으면, UI를 원래 상태로(rollback).
+* 네트워크 지연 동안에도 앱이 “빠르게 반응”하도록 느끼게 하는 것이 목적
+* (장점)
+  * 서버 응답 속도와 관계없이 즉각적인 피드백을 제공하여 사용자 경험을 향상
+  * 네트워크 상태가 나쁘거나 응답 시간이 길어도 사용자에게 체감되는 속도가 빠름
+* (단점)
+  * 서버에서 오류가 발생하면, 사용자에게는 잠시 동안 잘못된 정보가 표시될 수 있음
+  * 오류 발생 시 복구 로직이 필요
+
+### [ Pessimistic Update(비관적 업데이트) ]
+* 이벤트가 발행하면 먼저 서버에 요청을 보내고, 서버에서 성공 응답을 받은 후에 클라이언트의 UI를 업데이트
+* (장점)
+  * 서버의 응답을 기반으로 하기 때문에 데이터의 일관성이 보장
+  * 오류가 발생할 가능성이 낮고, 잘못된 정보가 표시될 염려가 없음
+* (단점)
+  * 사용자는 서버의 응답을 기다려야 하므로, 응답이 늦어지면 사용자 경험이 저하될 수 있음
+  * 특히 네트워크 지연이 발생할 경우 체감 속도가 느려짐
+
+### like-button.tsx
+* `@/ui/like-button.tsx`에서는 `state`를 2개 사용
+* `count`는 `like 버튼`을 클릭한 횟수
+* `isLiking`은 "서버에 요청이 진행 중인지"를 나타내는 `state`
+
+### isLiking state의 주요 역할 
+* 중복 클릭 방지 : isLiking이 true인 동안은 버튼을 disabled로 만들어 중복 요청 즉, 중복 낙관적 업데이트를 막는 역할
+* UI 피드백 : 로딩 상태 표시(스피너나 문구)를 위해 사용이 가능
+* 상태 안정화 : 서버에 요청이 끝날 때까지 추가 상태 변경을 잠시 멈추게 해서, 일관된 동작을 보장
+
+### like-button.tsx
+* 버튼을 클릭하면 handleClick이 호출되며, isLiking state를 **true**로, count state를 +1 변경
+* line20에서 네트워크 시뮬레이션을 위해 isLiking state를 **300ms동안 true**를 유지
+  * 즉, 버튼이 중복 클릭되는 것을 네트워크에 연결될 때까지 disable로 유지하기 위한 시뮬레이션
+* 테스트 할 때는 300ms로는 힘들기 때문에 3000ms 정도로 조정해서 테스트 하는 것이 좋음 ➔ 3초 동안은 클릭해도 반응이 없음
+
+~~~ts
+const handleClick = async () => {
+  // 낙관적 업데이트
+  setIsLiking(true)
+  setCount((c) => c + 1)
+
+  // 실제 저장 로직(API 호출 등)이 있다면 이곳에서 호출할 수 있습니다.
+  // 예: await fetch('/api/like', { method: 'POST', body: JSON.stringify({ id }) })
+
+  // 예제에서는 짧은 지연 후 버튼 상태만 해제합니다.
+  setTimeout(() => setIsLiking(false), 300)
+}
+~~~
+
+### Next.js에서 server와 client component는 어떻게 작동할까?
+
+* server component의 작동
+  * server에서 Next.js는 React의 API를 사용하여 렌더링을 조정
+  * 렌더링 작업은 개별 라우팅 세그먼트 별 묶음(Chunk)으로 나눔 ( layout 및 page )
+  * server component는 `RSC Payload(React Server Component Payload)`라는 특수한 데이터 형식으로 렌더링 됩니다.
+  * client component 와 RSC Payload는 HTML을 `미리 렌더링(prerender)`하는데 사용됩니다.
+* React Server Component Payload(RSC)란 무엇인가?
+  * RSC 페이로드는 렌더링된 React server component 트리의 압축된 바이너리 표현입니다.
+  * client에서 React가 브라우저의 DOM을 업데이트하는데 사용
+
+### RSC(RSC Payload)는 JSON인가, 바이너리인가?
+* 과거 : JSON 기반
+  * RSC 초기에는 JSON 형식의 문자열로 데이터를 전달 `예: { type: "component", props: { title: "Hello" } }`
+* 현재 : 바이너리 형식으로 최적화
+  * 최신 React, 특히 Next.js App Router는 RSC payload를 `compact binary format`으로 전송합니다.
+  * JSON이 아니라, React 전용 이진 포맷으로 스트림(stream)을 통해 전달
+  * 이 방식은 JSON보다 용량이 작고, 빠르게 파싱할 수 있음
+
+### Next.js에서 server와 client component는 어떻게 작동할까?
+* client component의 작동 (첫 번째 load)
+  * HTML은 사용자에게 경로의 비대화형 미리보기를 즉시 보여주는데 사용
+  * RSC 페이로드는 client와 server component 트리를 조정하는데 사용
+  * JavaScript는 client component를 `hydration`하고, 애플리케이션을 대화형으로 만드는 데 사용
+* Hydration이란 무엇인가?
+  * `Hydration`은 이벤트 핸들러를 DOM에 연결하여 정적 HTML을 인터랙티브하게 만드는 React의 프로세스
+
+### Next.js에서 server와 client component는 어떻게 작동합니까?
+* 후속 네비게이션
+  * 후속 탐색을 할 때 :
+    * RSC 페이로드는 즉시 탐색할 수 있도록 `prefetch 및 cache`
+    * client component는 server에서 렌더링된 HTML 없이 전적으로 client에서 렌더링
+
+### 예시
+* client component 사용
+  * 파일의 맨 위, 즉 import문 위에 "use client" 지시문을 추가하여 client component를 생성할 수 있음
+  * `use client`는 server와 client 모듈 트리 사이의 경계를 선언하는 데 사용
+  * 파일에 "use client"로 표시되면 해당 파일의 모든 import와 자식 component는 client 번들의 일부로 간주
+    * 즉, client를 대상으로 하는 모든 component에 이 지시문을 추가할 필요가 없음
+  
+~~~ts
+// app/ui/counter.tsx
+
+'use client'
+
+import { useState } from 'react'
+
+export default function Counter() {
+  const [count, setCount] = useState(0)
+
+  return (
+    <div>
+      <p>{count} likes</p>
+      <button onClick={() => setCount((count) => count + 1)}>Click me</button>
+    </div>
+  )
+}
+~~~
+
 ## 2025.10.01 6주차
 
 ### Client-side transitions(클라이언트 측 전환)
