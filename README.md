@@ -166,6 +166,115 @@ export default function Counter() {
 }
 ~~~
 
+### client component 사용
+* 문서의 코드는 /app/ui/counter.tsx를 작성했지만, src 디렉토리를 사용하는 경우는 다음과 같이 관리하는 것이 일반적
+  * src/app/ 아래에는 라우팅 페이지만 작성하고 관리합니다.
+  * 기타 사용자 정의 `component`나 `library`는 src/ 아래에 작성하고 관리
+
+~~~ts
+// src/components/counter.tsx
+'use client'
+
+import { useState } from 'react'
+
+export default function Counter() {
+  const [count, setCount] = useState(0)
+
+  return (
+    <div>
+      <p>{count} likes</p>
+      <button onClick={() => setCount(count + 1)}>Click me</button>
+    </div>
+  )
+}
+~~~
+
+### JS bundle 크기 줄이기
+* client JavaScript 번들의 크기를 줄이려면 UI의 큰 부분을 client component로 표시하는 대신 특정 대화형 component에 “use client”를 추가
+* 예를 들어, 다음 예제의 `<Layout> component`는 로고와 탐색 링크와 같은 정적 요소가 대부분이지만 대화형 검색창이 포함되어 있음
+* `Search />`는 대화형이기 때문에 client component가 되어야 하지만, 나머지 layout은 server component로 유지될 수 있음
+* `나머지 layout은 server component로 유지`
+
+### JS 번들 크기 줄이기
+`<Search />`는 사용자와의 상호작용이 바로 이루어질 가능성이 있기 때문에 Client Component로 사용하고, <Logo />는 상대적으로 중요하지 않고 이미지 등 용량이 크기 때문에 Server Component로 사용하는 것이 좋음
+
+~~~ts
+//app/layout.tsx
+
+// Client Component
+import Search from './search'
+// Server Component
+import Logo from './logo'
+
+// Layout is a Server Component by default
+export default function Layout({ children }: { children: React.ReactNode }) {
+  return (
+    <>
+      <nav>
+        <Logo />
+        <Search />
+      </nav>
+      <main>{children}</main>
+    </>
+  )
+}
+~~~
+
+~~~ts
+// app/ui/search.tsx
+
+'use client'
+
+export default function Search() {
+  // ...
+}
+
+~~~
+
+### server에서 client component로 데이터 전달
+* `props`를 사용하여 server component에서 client component로 데이터를 전달할 수 있음
+* 앞에서 작성한 PostPage(/[id]/page.tsx) server component는 line28즈음에 client component인 LikeButton으로 `likes props`를 전달하고 있는 것을 확인할 수 있음
+
+~~~ts
+// app/[id]/page.tsx
+
+import LikeButton from '@/app/ui/like-button'
+import { getPost } from '@/lib/data'
+
+export default async function Page({ params }: { params: { id: string } }) {
+  const post = await getPost(params.id)
+
+  return (
+    <div>
+      <main>
+        <h1>{post.title}</h1>
+        {/* ... */}
+        <LikeButton likes={post.likes} />
+      </main>
+    </div>
+  )
+}
+~~~
+
+~~~ts
+//app/ui/like-button.tsx
+
+'use client'
+
+export default function LikeButton({ likes }: { likes: number }) {
+  // ...
+}
+
+~~~
+
+### server에서 client component로 데이터 전달
+* `알아두면 좋은 정보` : client component에 전달되는 Props는 React로 직렬화가 가능해야 함
+
+### 직렬화(serialization)란 무엇인가?
+* 일반적으로는 메모리에 있는 복잡한 데이터를 바이트의 연속 형태로 변환하는 과정을 말함
+  * 즉, 자바스크립트의 객체나 배열처럼 구조가 있는 데이터를 파일로 저장하거나, 네트워크로 전송하기 쉽게 만드는 과정
+* React나 Next.js 같은 프레임워크는 컴포넌트의 상태나 트리 구조를 서버에서 직렬화하여 클라이언트로 전송하고, 클라이언트에서 역직렬화 하는 과정을 자주 수행
+
 ## 2025.10.01 6주차
 
 ### Client-side transitions(클라이언트 측 전환)
