@@ -1,6 +1,101 @@
 # 202130311 안상하
 
-## 2025.10.16 8주차
+## 2025.10.22 10주차
+
+### server 및 client component 
+* `인터리빙(Interleaving)`은 일반적으로 여러 데이터 블록이나 비트를 섞어서 전송하거나 처리하여 오류 발생 시 영향을 최소화하는 기술
+* 특히 데이터 통신에서 버스트 오류(연속적인 오류)를 줄이고 오류 정정 코드를 효과적으로 사용하기 위해 사용됩니다.
+* 프로그래밍이나 문서에서는 server 컴포넌트와 client 컴포넌트가 섞여서(interleaved) 동작하는 것을 의미
+  * server component를 client component에 props를 통해 전달할 수 있습니다.
+  * 이를 통해 client component 내에서 server에서 렌더링된 UI를 시각적으로 중첩할 수 있음
+  * `ClientComponent`에 공간(slot)을 만들고 children을 끼워넣는 패턴이 일반적
+* 예를 들어, client의 state를 사용하여 표시 여부를 전환(toggle)하는 `<Modal>` component 안에 server에서 데이터를 가져오는 `<Cart>` component가 있음
+* 그 다음 부모 server component`(예: <Page>)` 안에 `<Modal>`의 자식으로 `<Cart>`를 전달할 수 있음
+* Modal을 불러오는 곳이 Page이기 때문에 Page가 parent가 되는 것
+~~~ts
+// app/page.tsx
+import Modal from './ui/modal'
+import Cart from './ui/cart'
+
+export default function Page() {
+  return (
+    <Modal>
+      <Cart />
+    </Modal>
+  )
+}
+~~~
+
+### Context란 무엇인가?
+* 전역 상태 관리
+  * Context를 사용하면 애플리케이션 전체에서 공유해야 하는 데이터를 중앙 집중적으로 관리할 수 있음 (예: 사용자 정보, 테마 설정 등)
+* props drilling 문제 해결
+  * 컴포넌트 트리가 깊어질수록 props를 계속 전달해야 하는 번거로움을 줄여줌
+  * Context를 사용하면 필요한 컴포넌트에서 바로 데이터를 가져올 수 있으므로, 코드의 가독성을 높이고 유지 보수를 용이
+* React 컴포넌트에서 사용
+  * Context는 React에서 제공하는 기능이기 때문에 Next.js에서도 React 컴포넌트를 사용하여 구현
+
+### Context provider (컨텍스트 제공자)
+* React Context는 일반적으로 아래 테마처럼 전역 상태를 공유하는데 사용
+* 그러나 server component에서는 React Context가 지원되지 않음
+* Context를 사용하려면 children을 허용하는 client component로 만들어야 함
+~~~ts
+// app/theme-provider.tsx
+
+'use client'
+
+import { createContext } from 'react'
+
+export const ThemeContext = createContext({})
+
+export default function ThemeProvider({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return <ThemeContext.Provider value="dark">{children}</ThemeContext.Provider>
+}
+~~~
+
+* 추가된 부분
+~~~ts
+'use client'
+
+import { createContext, useEffect, useState } from 'react'
+
+export const ThemeContext = createContext<{
+  theme: 'light' | 'dark'
+  toggleTheme: () => void
+}>({
+  theme: 'light',
+  toggleTheme: () => {},
+})
+
+export default function ThemeProvider({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  const [theme, setTheme] = useState<'light' | 'dark'>('light')
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      document.documentElement.dataset.theme = theme
+    }
+  }, [theme])
+
+  const toggleTheme = () => { setTheme((t) => (t === 'dark' ? 'light' : 'dark')) }
+  
+  return (
+    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+      {children}
+    </ThemeContext.Provider>
+  )
+}
+~~~
+
+
+## 2025.10.17 9주차
 
 ### Introduction
 * 기본적으로 `layout`과 `page`는 `server component`입니다.
