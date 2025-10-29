@@ -1,5 +1,127 @@
 # 202130311 안상하
 
+## 2025.10.29 11주차
+
+### Context provider 순서도 형식으로 정리
+1. RootLayout 렌더
+2. ThemeProvider 생성 (useState: theme)
+3. Provider value 제공 -> children 렌더
+4. ThemeStatus(useContext) 읽음
+5. 사용자 클릭 -> toggleTheme() 호출
+6. setTheme(newTheme) 실행 (state 변경)
+7. useEffect 실행 -> document.dataset.theme 업데이트
+8. Provider & Consumer 리렌더 -> UI 갱신
+
+### 외부(서드 파티) component
+* client 전용 기능에 의존하는 외부 component를 사용하는 경우, 해당 component를 client component에 래핑하여 예상대로 작동하는지 확인할 수 있음
+* 예를 들어, <Carousel />은 acme-carousel 패키지에서 가져올 수 있음
+* 이 component는 useState를 사용하지만 "use client" 지시문은 없음. "use client" 지시문 없이 어떻게 사용할 수 있을까?
+  * client component 내에서 <Carousel />을 사용하면 예상대로 작동
+~~~ts
+// app/gallery.tsx
+
+'use client'
+
+import { useState } from 'react'
+import { Carousel } from 'acme-carousel'
+
+export default function Gallery() {
+  const [isOpen, setIsOpen] = useState(false)
+
+  return (
+    <div>
+      <button onClick={() => setIsOpen(true)}>View pictures</button>
+
+      {/* Works, since Carousel is used within a Client Component */}
+      {isOpen && <Carousel />}
+    </div>
+  )
+}
+~~~
+* 그러나 server component 내에서 직접 사용하려고 하면 오류가 발생
+  * 이는 Next.js가 <Carousel />이 client 전용 기능을 사용하고 있다는 것을 알지 못하기 때문
+  * 이 문제를 해결하려면 client 전용 기능에 의존하는 외부 component를 자체 client component로 래핑할 수 있음
+~~~ts
+// app/carousel.tsx
+'use client'
+
+import { Carousel } from 'acme-carousel'
+
+export default Carousel
+~~~
+* 이제 server component 내에서 <Carousel />을 직접 사용할 수 있음
+~~~ts
+// app/page.tsx
+import Carousel from './carousel'
+
+export default function Page() {
+  return (
+    <div>
+      <p>View pictures</p>
+      {/* Works, since Carousel is a Client Component */}
+      <Carousel />
+    </div>
+  )
+}
+~~~
+
+### 환경 변수 노출 예방
+* JavaScript 모듈은 server 및 client component 모듈 간에 공유될 수 있음
+  * 실수로 server 전용 코드를 client로 가져올 수도 있음
+
+### Fetching Data (데이터 가져오기)
+* 서버 컴포넌트에서 데이터를 가져올 수 있는 방법
+  * fetch API
+  * ORM 또는 데이터베이스
+* fetch API 사용
+  * 데이터를 가져오려면 fetch API를 사용하여 컴포넌트를 비동기식 함수로 변환하고 다음 fetch 호출을 대기
+~~~ts
+// 예시
+// app/blog/page.tsx
+
+export default async function Page() {
+  const data = await fetch('https://api.vercel.app/blog')
+  const posts = await data.json()
+  return (
+    <ul>
+      {posts.map((post) => (
+        <li key={post.id}>{post.title}</li>
+      ))}
+    </ul>
+  )
+}
+~~~
+
+* ORM 또는 데이터베이스를 사용
+  * 서버 컴포넌트는 서버에서 렌더링 되기 때문에 ORM이나 데이터베이스 클라이언트를 사용해서 안전하게 데이터베이스 쿼리를 실행할 수 있음
+  * 컴포넌트를 비동기 함수로 변환하고 호출을 대기
+~~~ts
+// app/blog/page.tsx
+
+import { db, posts } from '@/lib/db'
+
+export default async function Page() {
+  const allPosts = await db.select().from(posts)
+  return (
+    <ul>
+      {allPosts.map((post) => (
+        <li key={post.id}>{post.title}</li>
+      ))}
+    </ul>
+  )
+}
+~~~
+
+* 클라이언트 컴포넌트에서 데이터를 가져오는 방법에는 두 가지가 있습니다.
+  * React의 use Hook
+  * SWR 또는 React 쿼리와 같은 통신 라이브러리
+* use Hook을 사용한 스트리밍 데이터
+* React의 use Hook을 사용해서 서버에서 클라이언트로 데이터를 스트리밍
+* 서버 컴포넌트에서 데이터를 먼저 fetch하고, 그 결과(promise)를 클라이언트 컴포넌트에 prop으로 전달
+  * 서버 컴포넌트는 async가 가능하기 때문에 await fetch()도 사용 가능
+  * 하지만 클라이언트 컴포넌트에서는 async가 불가능하기 때문에 직접 fetch가 불가능 (렌더링 중 fetch 금지)
+  * 이런 이유 때문에 서버에서 fetch한 결과를 prop으로 넘기고, 클라이언트에서는 use(promise)를 써서 데이터를 가져옴
+
 ## 2025.10.22 10주차
 
 ### server 및 client component 
