@@ -1,5 +1,197 @@
 # 202130311 안상하
 
+## 2025.11.19 13주차
+
+### Tailwind CSS
+* Tailwind CSS는 사용자 정의 디자인을 구축하기 위한 저수준 유틸리티 클래스를 제공하는 유틸리티 우선 CSS 프레임워크
+* Tailwind CSS 설치
+~~~bash
+npm install -D tailwindcss @tailwindcss/postcss
+~~~
+
+* postcss.config.mjs 파일에 PostCSS 플러그인을 추가
+~~~js
+// postcss.config.mjs
+
+export default {
+  plugins: {
+    '@tailwindcss/postcss': {},
+  },
+}
+~~~
+
+### Global(전역) CSS
+* 전역 CSS를 사용하여 응용 프로그램 전체에 스타일을 적용할 수 있음
+* app/global.css 파일을 만들고 루트 레이아웃으로 가져와 애플리케이션의 모든 경로에 스타일을 적용
+~~~css
+/* app/global.css */
+
+body {
+  padding: 20px 20px 60px;
+  max-width: 680px;
+  margin: 0 auto;
+}
+~~~
+
+~~~ts
+// app/layout.tsx
+
+// These styles apply to every route in the application
+import './global.css'
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <html lang="en">
+      <body>{children}</body>
+    </html>
+  )
+}
+~~~
+
+### 대표적인 Global Style이 적용되는 예
+* html, body 기본 스타일
+* reset 스타일
+* 전역 폰트 import
+* 전역 색상/레이아웃 규칙
+* 공통 animation 정의 등
+
+~~~ css
+/* 변경 전 (Tailwind CSS 3.x) */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 변경 후 (Tailwind CSS 4.0) */
+@import "tailwindcss";
+~~~
+
+### 외부 스타일시트
+* 외부 패키지로 제공되는 스타일시트는 app 디렉토리의 컴포넌트를 포함하여, 어느 곳에서나 import해서 사용할 수 있음
+~~~ts
+// app/layout.tsx
+
+import 'bootstrap/dist/css/bootstrap.css'
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <html lang="en">
+      <body className="container">{children}</body>
+    </html>
+  )
+}
+~~~
+
+### Bootstrap 실습 (외부 스타일 시트)
+* bootstrap 패키지를 설치
+~~~bash
+$ npm install bootstrap@5.3.8
+~~~
+* 설치가 끝나면 사용하고 싶은 컴포넌트에 다음과 같이 import해서 사용
+~~~ts
+import 'bootstrap/dist/css/bootstrap.css'
+~~~
+*  blog2 페이지를 만든 후 localLayout에 적용한다면
+~~~ts
+// src > app > blog2 > layout.tsx > Blog2Layout
+
+import 'bootstrap/dist/css/bootstrap.css'
+
+export default function Blog2Layout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <main>
+      <div className="container">{children}</div>
+    </main>
+  )
+}
+~~~
+* Blog2Layout에서 line10의 className="container"는 Bootstrap의 스타일
+* 이 페이지에 Bootstrap의 버튼을 추가
+~~~ts
+// src > app > blog2 > page.tsx > Blog2Page
+
+export default function Blog2Page() {
+  return (
+    <main className="p-4">
+      <h1 className="text-3xl font-semibold mb-4">Blog2 Page</h1>
+      <p className="text-lg">
+        This is the Blog2 page styled with Tailwind CSS.
+      </p>
+      <button type="button" className="btn btn-primary">Primary</button>
+      <button type="button" className="btn btn-secondary">Secondary</button>
+      <button type="button" className="btn btn-success">Success</button>
+      <button type="button" className="btn btn-danger">Danger</button>
+      <button type="button" className="btn btn-warning">Warning</button>
+      <button type="button" className="btn btn-info">Info</button>
+      <button type="button" className="btn btn-light">Light</button>
+      <button type="button" className="btn btn-dark">Dark</button>
+      
+      <button type="button" className="btn btn-link">Link</button>
+    </main>
+  )
+}
+~~~
+* `src/`의 어느곳에서나 한번 import하면 Next.js 번들에 합쳐져서 전역적으로 영향을 미치게 됨 
+* Bootstrap과 같은 전역적으로 강제 주입하는 CSS 프레임워크는 주의해야 함
+
+### 전역(Global) 스타일을 페이지 전체에 강제로 주입하는 라이브러리
+* Bootstrap
+  * *.css 를 import하면 모든 HTML 태그에 기본 스타일 규칙이 적용됨
+  * 버튼, 폼, typography 등이 global reset 수준으로 변경됨
+  * 다른 스타일과 쉽게 충돌 가능성 있음
+* Bulma
+  * class 기반이긴 하지만 모든 요소(html, body, button 등)에 글로벌 스타일 적용
+  * Bootstrap처럼 전체 애플리케이션 스타일이 바뀜
+* Foundation (Zurb Foundation)
+  * Bootstrap과 매우 유사한 구조
+  * normalize + 전역 스타일이 애플리케이션 전체에 적용됨
+* Semantic UI / Fomantic UI
+  * 컴포넌트 스타일이 global CSS로 로드됨
+  * ui.button 같은 네임스페이스가 있지만 전역 단위로 적용됨
+  * 스타일 충돌 가능성 있음
+* Materialize CSS
+  * 구글 Material Design 스타일도 전역 적용
+  * HTML 기본 요소들의 스타일이 변함
+* normalize.css / reset.css / sanitize.css
+  * 라이브러리는 아니지만, 전역 리셋
+  * `<h1>`, `<p>`, `<ul>` 등의 기본 마진/패딩이 전부 변경됨
+  * 앱 전체 레이아웃에 영향을 주므로 반드시 상위 레벨에서만 사용해야 함
+
+### 순서 지정 및 병합
+* Next.js는 프로덕션 빌드 중에 스타일시트를 자동으로 `청크(병합)`하여 CSS를 최적화
+* CSS의 순서는 코드에서 스타일을 가져오는 순서에 따라 다릅니다
+* 예를 들어, `<BaseButton>`이 page.module.css보다 먼저 import되기 때문에 base-button.module.css가 page.module.css보다 먼저 요청
+~~~ts
+// page.tsx
+
+import { BaseButton } from './base-button'
+import styles from './page.module.css'
+
+export default function Page() {
+  return <BaseButton className={styles.primary} />
+}
+~~~
+~~~ts
+// base-button.tsx
+
+import styles from './base-button.module.css'
+
+export function BaseButton() {
+  return <button className={styles.primary} />
+}
+~~~
+
 ## 2025.11.12 12주차
 
 ### 스트리밍
