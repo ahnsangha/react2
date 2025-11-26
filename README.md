@@ -1,5 +1,188 @@
 # 202130311 안상하
 
+## 2025.11.26 14주차
+
+### 이미지 최적화
+* The Next.js <Image> 컴포넌트는 HTML <img>요소를 확장하여 제공
+* 크기 최적화 : 각 기기에 맞게 자동으로 적절한 크기의 이미지를 제공하며, WebP와 같은 최신 이미지 형식을 사용
+* 시각적 안정성 : 이미지 로딩 시 `레이아웃 이동(layout shift)`을 자동으로 방지
+* 더 빠른 페이지 로드 : 기본 브라우저 지연 로딩(native browser lazy loading)을 사용하여 뷰포트에 들어갈 때만 이미지를 로드하며, 선택적 흐리게 표시되는 placeholder를 제공
+* 자산(Asset) 유연성 : 원격 서버에 저장된 이미지도 원하는 대로 이미지 크기를 조정할 수 있음
+* `<Image>`를 사용하려면 next/image에서 import하여 컴포넌트 내에서 렌더링에 사용
+
+~~~ts
+// app/page.tsx
+
+import Image from 'next/image'
+
+export default function Page() {
+  return <Image src="" alt="" />
+}
+~~~
+
+### 로컬 이미지
+* 정적 파일(이미지, 폰트 등)은 루트 디렉토리의 public 디렉토리에 저장할 수 있음
+* public 디렉토리 내의 파일은 `기본 URL(/)`을 시작으로 코드에서 참조할 수 있음
+* 실습
+~~~ts
+// src > app > blog > page.tsx > Page
+
+import Image from 'next/image'
+
+export default function Page() {
+  return (
+    <>
+      <Image
+        className="dark:invert"
+        src="/nextjs.png"
+        alt="Picture of the author"
+        width={360}
+        height={218}
+      />
+    </>
+  )
+}
+~~~
+
+### import 이미지 vs public 이미지
+* Next.js의 핵심 기능 중 하나인 자동 이미지 최적화의 혜택을 최대한 누리려면 Import 방식을 우선적으로 고려해야 함
+* Next.js 공식 문서에서 가장 강력하게 권장하는 방식
+* 대부분의 로컬 이미지에 이 방식을 사용하는 것이 가장 좋음
+* 컴포넌트 내에서 사용하는 모든 이미지 : UI 요소, 배경 이미지, 로고 등.
+* 빌드 타임에 경로가 확정된 이미지 : 소스 코드와 함께 빌드 되어야 하는 정적인 이미지 파일.
+* 최적화와 성능이 가장 중요한 이미지 : Next.js가 자동으로 WebP 변환, 지연 로딩, 다양한 화면 크기에 맞는 이미지 생성(srcset) 등을 적용하여, `CLS(Cumulative Layout Shift)`를 효과적으로 방지할 수 있음
+* Public 디렉토리 방식의 사용 시점은 다음
+* 웹 루트에서 직접 접근해야 하는 파일:
+  * favicon.ico, robots.txt, manifest.json 등 메타 파일.
+  * 외부 스크립트나 서비스(예: 웹 크롤러, SEO 도구)가 `웹 루트(/)`에서 직접 접근해야 하는 파일.
+* 경로 문자열이 필요한 경우:
+  * 동적으로 경로를 구성해야 할 때. (예: 서버 API 응답에 따라 이미지 경로가 달라지는 경우).
+  * 정적인 URL이 필요한 경우. (예: CMS나 데이터베이스에 저장된 이미지를 Next.js가 아닌 다른 곳에서 참조해야 할 때).
+  * CSS 파일에서 배경 이미지로 사용할 때. (Import 방식은 CSS에서 사용하기 어려움).
+* `<Image>` 컴포넌트를 사용할 수 없는 경우: 일반 `<img>` 태그를 사용해야 하는 특수한 상황. 이 경우 성능 최적화는 포기해야 함
+
+### 원격 이미지
+* 원격 이미지를 사용할 때 src 속성에 URL 문자열을 지정할 수 있음
+~~~ts
+// app/page.tsx
+
+import Image from 'next/image'
+
+export default function Page() {
+  return (
+    <Image
+      src="https://s3.amazonaws.com/my-bucket/profile.png"
+      alt="Picture of the author"
+      width={500}
+      height={500}
+    />
+  )
+}
+~~~
+* Next.js는 빌드 과정에서 원격 파일에 접근할 수 없으므로, width, height 및 선택적 blurDataURL 속성을 수동으로 제공해야 합니다.
+* width와 height는 이미지의 정확한 종횡비를 추론하고, 이미지 로딩으로 인한 `레이아웃 변동(CLS)`을 방지하는 데 사용됩니다.
+* 또는 fill 속성을 사용하여 이미지가 부모 요소의 크기를 채우도록 할 수도 있음
+* 원격 서버의 이미지를 안전하게 허용하려면, next.config.js에서 허용되는 URL 패턴 목록을 정의해야 합니다.
+* 악의적인 사용을 방지하기 위해 가능한 한 구체적으로 지정
+* 예를 들어, 다음 구성은 특정 AWS S3 버킷의 이미지만 허용
+~~~ts
+// next.config.ts
+
+import type { NextConfig } from 'next'
+
+const config: NextConfig = {
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 's3.amazonaws.com',
+        port: '',
+        pathname: '/my-bucket/**',
+        search: '',
+      },
+    ],
+  },
+}
+
+export default config
+~~~
+
+### 폰트 최적화
+* next/font 모듈은 자동으로 글꼴을 최적화하고, 외부 네트워크 요청을 제거하여, 개인 정보 보호와 성능을 향상
+* 이 모듈은 모든 글꼴 파일에 대한 자체 호스팅 기능이 내장되어 있음
+* 즉, 레이아웃 이동 없이 웹 글꼴을 최적의 상태로 로드 할 수 있음
+* next/font 사용을 시작하려면, 먼저 next/font/local 또는 next/font/google에서 import하고, 적절한 옵션과 함께 함수처럼 호출하여 사용
+* 글꼴을 적용할 때는 엘리먼트의 className을 이용하여 설정
+~~~ts
+// app/layout.tsx
+
+import { Geist } from 'next/font/google'
+
+const geist = Geist({
+  subsets: ['latin'],
+})
+
+export default function Layout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en" className={geist.className}>
+      <body>{children}</body>
+    </html>
+  )
+}
+~~~
+
+### Google 글꼴
+* 모든 Google 글꼴을 자동으로 자체 호스팅할 수 있음
+* 글꼴은 정적 assets으로 저장되며, 배포와 동일한 도메인에서 제공되므로 사용자가 사이트를 방문할 때 브라우저에서 Google에 요청을 보내지 않음
+* Google 글꼴을 사용하려면 다음에서 선택한 글꼴을 가져옴 `next/font/google`
+~~~ts
+// app/layout.tsx
+
+import { Geist } from 'next/font/google'
+
+const geist = Geist({
+  subsets: ['latin'],
+})
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <html lang="en" className={geist.className}>
+      <body>{children}</body>
+    </html>
+  )
+}
+~~~
+
+### 로컬 글꼴
+* 로컬 글꼴을 사용하려면 next/font/local에서 글꼴을 import한 후 로컬 글꼴 파일의 src를 지정
+* 글꼴은 public 디렉토리에 저장하거나, app 디렉토리 내부에 함께 배치
+~~~ts
+// app/layout.tsx
+
+import localFont from 'next/font/local'
+
+const myFont = localFont({
+  src: './my-font.woff2',
+})
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <html lang="en" className={myFont.className}>
+      <body>{children}</body>
+    </html>
+  )
+}
+~~~
+
+
 ## 2025.11.19 13주차
 
 ### Tailwind CSS
